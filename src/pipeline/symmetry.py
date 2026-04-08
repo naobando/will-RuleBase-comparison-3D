@@ -3817,9 +3817,9 @@ class SymmetryPipeline:
                 return cv2.dilate(mask, mask_kernel, iterations=int(foreground_mask_dilate_iter))
             return mask
 
-        # 前景マスク（ON時のみ）: 両画像の前景領域の共通部分（AND）で差分を限定
-        # マスターのみで前景マスクを作ると、部品位置のズレで片方が背景の領域に
-        # 大きな偽差分が出る。両画像の前景の AND を使うことで境界干渉を排除する。
+        # 前景マスク（ON時のみ）: 両画像の前景領域の OR で差分を限定
+        # 両方とも背景（黒）の領域だけを除外する。片方だけ前景の領域は
+        # 部品の欠けや余分な突起など実際の差異なので検出対象に含める。
         fg_mask = None
         if use_foreground_mask:
             from src.core.segmentation import get_foreground_mask
@@ -3840,7 +3840,7 @@ class SymmetryPipeline:
                 )
             )
             if _fg_a is not None and _fg_b is not None:
-                fg_mask = cv2.bitwise_and(_fg_a, _fg_b)
+                fg_mask = cv2.bitwise_or(_fg_a, _fg_b)
             elif _fg_a is not None:
                 fg_mask = _fg_a
             elif _fg_b is not None:
