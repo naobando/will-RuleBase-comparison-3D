@@ -471,12 +471,28 @@ class SymmetryPipeline:
                 _cf_rotated = _rotate_image_by_angle(imageB, _cf_rotation)
             else:
                 _cf_rotated = imageB
-            # 前景中心を自動検出してcrop位置を決定
+            # 前景中心を自動検出してcrop位置を決定（Otsu + closing で穴を埋める）
             _cf_gray = cv2.cvtColor(_cf_rotated, cv2.COLOR_BGR2GRAY) if len(_cf_rotated.shape) == 3 else _cf_rotated
-            _, _cf_bin = cv2.threshold(_cf_gray, 30, 255, cv2.THRESH_BINARY)
+            _cf_blurred = cv2.GaussianBlur(_cf_gray, (5, 5), 0)
+            _, _cf_bin = cv2.threshold(_cf_blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # 部品内部の穴を埋めるために closing → dilate
+            _cf_kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
+            _cf_bin = cv2.morphologyEx(_cf_bin, cv2.MORPH_CLOSE, _cf_kern, iterations=3)
+            _cf_bin = cv2.dilate(_cf_bin, _cf_kern, iterations=1)
             _cf_contours, _ = cv2.findContours(_cf_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if _cf_contours:
-                _cf_main = max(_cf_contours, key=cv2.contourArea)
+                # 画像中心に最も近い大きな輪郭を選択（ノイズ除去）
+                _cf_img_cx = _cf_rotated.shape[1] // 2
+                _cf_img_cy = _cf_rotated.shape[0] // 2
+                _cf_min_area = _cf_rotated.shape[0] * _cf_rotated.shape[1] * 0.01
+                _cf_valid = [c for c in _cf_contours if cv2.contourArea(c) >= _cf_min_area]
+                if not _cf_valid:
+                    _cf_valid = _cf_contours
+                # 中心に最も近い輪郭を選択
+                def _cf_dist_to_center(c):
+                    bx, by, bw, bh = cv2.boundingRect(c)
+                    return (bx + bw // 2 - _cf_img_cx) ** 2 + (by + bh // 2 - _cf_img_cy) ** 2
+                _cf_main = min(_cf_valid, key=_cf_dist_to_center)
                 _cf_bx, _cf_by, _cf_bw, _cf_bh = cv2.boundingRect(_cf_main)
                 # 前景中心を基準に、マスターと同じサイズの領域を切り出す
                 _cf_cx = _cf_bx + _cf_bw // 2
