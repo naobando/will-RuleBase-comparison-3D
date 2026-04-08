@@ -203,13 +203,14 @@ def crop_to_master_fov(
 
     _diag_base = {"good_matches": n_good, "flipped": best_flipped}
 
-    # 3点のみのときはアフィン変換で画角合わせを試す
-    use_affine = n_good >= 3 and n_good < min_matches
-    if use_affine:
+    # 3点以上: 相似変換（回転+等方スケール+平行移動のみ）で画角合わせ
+    # getAffineTransform は6自由度（シアー含む）のため使わない
+    use_partial = n_good >= 3 and n_good < min_matches
+    if use_partial:
         try:
-            pts_src_3 = pts_src[:3].reshape(3, 2)
-            pts_dst_3 = pts_dst[:3].reshape(3, 2)
-            M = cv2.getAffineTransform(pts_dst_3, pts_src_3)
+            M, _mask3 = cv2.estimateAffinePartial2D(pts_dst, pts_src, method=cv2.RANSAC, ransacReprojThreshold=5.0)
+            if M is None:
+                return None, None, False, {"kp1": n_kp1, "kp2": n_kp2, **_diag_base}
             if area_b < area_a:
                 M_inv = cv2.invertAffineTransform(M)
                 warped_a = cv2.warpAffine(imageA, M_inv, (imageB.shape[1], imageB.shape[0]))
@@ -223,7 +224,9 @@ def crop_to_master_fov(
         except Exception:
             return None, None, False, {"kp1": n_kp1, "kp2": n_kp2, **_diag_base}
 
-    # 4点以上: アフィン変換で画角合わせ（回転+スケール+平行移動のみ、斜め歪みなし）
+    # 4点以上: 相似変換（回転+等方スケール+平行移動, 4自由度）で画角合わせ
+    # findHomography は透視変換（8自由度）のためシアー歪みが入る。
+    # estimateAffinePartial2D は相似変換のみなのでアスペクト比が保たれる。
     try:
         M, mask = cv2.estimateAffinePartial2D(pts_dst, pts_src, method=cv2.RANSAC, ransacReprojThreshold=5.0)
     except Exception:
@@ -232,14 +235,13 @@ def crop_to_master_fov(
         return None, None, False, {"kp1": n_kp1, "kp2": n_kp2, **_diag_base}
 
     # --- 変換品質チェック ---
-    # M行列から推定回転角を算出（事前回転角を差し引いて残差のみチェック）
-    m00, m01 = M[0, 0], M[0, 1]
-    raw_rotation_deg = math.degrees(math.atan2(m01, m00))
+    # アフィン行列から推定回転角を算出（事前回転角を差し引いて残差のみチェック）
+    raw_rotation_deg = math.degrees(math.atan2(M[1, 0], M[0, 0]))
     residual_rotation = raw_rotation_deg - best_angle_deg
     residual_rotation = (residual_rotation + 180) % 360 - 180
     estimated_rotation_deg = abs(residual_rotation)
     _diag_base["estimated_rotation_deg"] = round(estimated_rotation_deg, 2)
-    _diag_base["raw_rotation_from_H_deg"] = round(raw_rotation_deg, 2)
+    _diag_base["raw_rotation_from_M_deg"] = round(raw_rotation_deg, 2)
     _diag_base["pre_rotation_deg"] = round(best_angle_deg, 2)
 
     if max_rotation_deg > 0 and estimated_rotation_deg > max_rotation_deg:
@@ -264,21 +266,22 @@ def crop_to_master_fov(
                 **_diag_base,
             }
 
-    # スケールチェック（極端な拡大縮小を弾く）
-    scale = math.sqrt(m00 * m00 + m01 * m01)
-    _diag_base["warp_scale"] = round(scale, 3)
-    if scale < 0.3 or scale > 3.0:
+    # 変換の幾何学的妥当性チェック（スケールが負 = 反転 → 不正）
+    scale = math.sqrt(M[0, 0]**2 + M[1, 0]**2)
+    det = M[0, 0] * M[1, 1] - M[0, 1] * M[1, 0]
+    _diag_base["warp_scale"] = round(scale, 4)
+    _diag_base["warp_det"] = round(det, 4)
+    if det <= 0:
         return None, None, False, {
             "kp1": n_kp1, "kp2": n_kp2,
-            "reject": "warp_scale_out_of_range",
-            "warp_scale": round(scale, 3),
+            "reject": "warp_degenerate",
+            "warp_det": round(det, 4),
             **_diag_base,
         }
 
     # 比較画像がマスターより小さい → マスターを比較サイズにワープ
     if area_b < area_a:
         try:
-            # M の逆変換
             M_inv = cv2.invertAffineTransform(M)
             warped_a = cv2.warpAffine(imageA, M_inv, (imageB.shape[1], imageB.shape[0]))
         except Exception:

@@ -299,7 +299,7 @@ analysis:
   crop_rotation_search_step_deg: 1
   crop_master_padding_ratio: 0
   crop_template_match_fallback: true
-  crop_template_match_min_score: 0.7
+  crop_template_match_min_score: 0.5
   crop_template_match_padding: 0
   debug_crop_log: true
   debug_crop_log_path: crop_debug.log
@@ -330,7 +330,7 @@ analysis:
   align_ecc_blur_ksize: 5
   align_ecc_max_iter: 1000
   align_ecc_eps: 1e-6
-  align_ecc_warp_mode: affine
+  align_ecc_warp_mode: euclidean
   diff_thresh: 38
   min_area: 850
   morph_kernel: 9
@@ -342,3 +342,8 @@ registration_crop:
   y: 80
   w: 663
   h: 839
+crop_fixed_params:
+  scale: 1.0
+  rotation: 0.0
+  x: 270
+  y: 550

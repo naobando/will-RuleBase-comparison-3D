@@ -277,12 +277,12 @@ def _align_by_rect(imageA, imageB, get_rect_func, get_rect_kwargs=None):
     if rotation_deg > 90:
         rotation_deg = 180.0 - rotation_deg
     translation_px = float(np.hypot(cxA - cxB, cyA - cyB))
-    scale_x = wA / (wB + 1e-6)
-    scale_y = hA / (hB + 1e-6)
-    scale = (scale_x + scale_y) / 2.0
+    # スケールは1.0固定（カメラ固定のため部品サイズは変わらない。異常画像で矩形サイズが
+    # 変わってもスケールを変えない）。回転と平行移動のみで位置合わせする。
+    scale = 1.0
     angle_rad = np.deg2rad(angleA - angleB)
     c, s = np.cos(angle_rad), np.sin(angle_rad)
-    R = np.array([[c * scale_x, -s * scale_y], [s * scale_x, c * scale_y]], dtype=np.float64)
+    R = np.array([[c * scale, -s * scale], [s * scale, c * scale]], dtype=np.float64)
     t = np.array([[cxA], [cyA]]) - R @ np.array([[cxB], [cyB]])
     M = np.hstack([R, t]).astype(np.float32)
     target_h, target_w = imageA.shape[:2]
