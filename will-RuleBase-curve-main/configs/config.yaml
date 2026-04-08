@@ -1,0 +1,76 @@
+io:
+  outputs_dir: data/outputs
+  templates_dir: templates
+
+alignment:
+  coarse_crop:
+    enabled: true
+    pad_ratio: 0.18
+    top_exclude_ratio: 0.18
+    out_size: [1100, 1100]
+
+  scale_normalize:
+    enabled: true
+    method: bbox_height
+    min_scale: 0.85
+    max_scale: 1.2
+    pad_value: 0
+
+  ecc:
+    enabled: true
+    motion: affine
+    scale: 0.5
+    num_iter: 120
+    eps: 1.0e-06
+
+detection:
+  part_mask:
+    enabled: true
+    method: otsu_largest
+    erode_ksize: 11
+    erode_iter: 1
+
+  reference_mask_cutout:
+    enabled: true
+
+  contour_diff:
+    enabled: true
+    method: band_match
+    band_width: 3          # 25→18（厳しく）
+    miss_ratio_th: 0.04     # 0.10→0.06（厳しく）
+    extra_ratio_th: 0.04    # 0.10→0.06（厳しく）
+    xor_threshold_pixels: 1200
+    xor_threshold_ratio: 0.15
+
+roi_diff:
+  enabled: true
+  rois:
+    - [0.00, 0.00, 0.50, 0.50]
+    - [0.50, 0.00, 1.00, 0.50]
+    - [0.00, 0.50, 0.50, 1.00]
+    - [0.50, 0.50, 1.00, 1.00]
+  method: "edge"
+  canny1: 60
+  canny2: 160
+  dilate_ksize: 5
+  dilate_iter: 0       # 1→0（太らせない）
+  diff_th: 25          # 18→25（ノイズ抑制）
+  min_area: 400        # 110→400（小さい塊は無視）
+  sum_ratio_th: 0.0005 # ここは一旦据え置き
+
+
+template:
+  from_overlay: false
+  overlay_red_hsv:
+    h_ranges:
+      - [0, 12]
+      - [168, 179]
+    s_min: 80
+    v_min: 80
+    morph_close_ksize: 5
+    morph_close_iter: 1
+
+visualization:
+  save_intermediate: true
+  overlay_alpha: 0.65
+  overlay_base: "test_aligned"   # "ref" or "test_aligned" or "test_crop"

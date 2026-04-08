@@ -1,0 +1,32 @@
+{
+  "name": "master_verify2",
+  "source_image": "data/inputs/master.png",
+  "created_at": "2026-01-14 03:40:38",
+  "coarse_crop": {
+    "ref_rect": [
+      -148,
+      -166,
+      972,
+      1090
+    ],
+    "ref_bbox_wh": [
+      1121,
+      1257
+    ],
+    "test_rect": [
+      -177,
+      -89,
+      943,
+      1167
+    ],
+    "out_size": [
+      1100,
+      1100
+    ],
+    "top_exclude_ratio": 0.18,
+    "pad_ratio": 0.18
+  },
+  "scale_method": "bbox_height",
+  "ref_measure": 908.0,
+  "template_from_overlay": false
+}
