@@ -1076,7 +1076,7 @@ class SymmetryPipeline:
             # 背景クロマキー: 画像端から連結する暗領域のみマスク（内部の穴は保護）
             _ebg_max = config.get("ensemble_bg_brightness_max", 30)
             if _ebg_max > 0:
-                _ebg_dark = ((processedA <= _ebg_max) | (processedB <= _ebg_max)).astype(np.uint8) * 255
+                _ebg_dark = ((processedA <= _ebg_max) & (processedB <= _ebg_max)).astype(np.uint8) * 255
                 _ebg_n, _ebg_labels, _ebg_stats, _ = cv2.connectedComponentsWithStats(
                     _ebg_dark, connectivity=8)
                 _ebg_bg = np.zeros((_eh, _ew), dtype=np.uint8)
