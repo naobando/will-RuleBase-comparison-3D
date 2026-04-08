@@ -3817,11 +3817,13 @@ class SymmetryPipeline:
                 return cv2.dilate(mask, mask_kernel, iterations=int(foreground_mask_dilate_iter))
             return mask
 
-        # 前景マスク（ON時のみ）: 基準画像から前景領域を抽出し、差分・BBOXを前景内に限定
+        # 前景マスク（ON時のみ）: 両画像の前景領域の共通部分（AND）で差分を限定
+        # マスターのみで前景マスクを作ると、部品位置のズレで片方が背景の領域に
+        # 大きな偽差分が出る。両画像の前景の AND を使うことで境界干渉を排除する。
         fg_mask = None
         if use_foreground_mask:
             from src.core.segmentation import get_foreground_mask
-            fg_mask = _dilate_mask(
+            _fg_a = _dilate_mask(
                 get_foreground_mask(
                     imageA,
                     blur_ksize=5,
@@ -3829,7 +3831,22 @@ class SymmetryPipeline:
                     preclose_kernel=foreground_mask_kernel,
                 )
             )
-            master_fg = fg_mask
+            _fg_b = _dilate_mask(
+                get_foreground_mask(
+                    imageB,
+                    blur_ksize=5,
+                    keep_largest_ratio=foreground_mask_keep_ratio,
+                    preclose_kernel=foreground_mask_kernel,
+                )
+            )
+            if _fg_a is not None and _fg_b is not None:
+                fg_mask = cv2.bitwise_and(_fg_a, _fg_b)
+            elif _fg_a is not None:
+                fg_mask = _fg_a
+            elif _fg_b is not None:
+                fg_mask = _fg_b
+            master_fg = _fg_a
+            compare_fg = _fg_b
             if fg_mask is not None:
                 diff = cv2.bitwise_and(diff, diff, mask=fg_mask)
                 if _save_stage is not None:
