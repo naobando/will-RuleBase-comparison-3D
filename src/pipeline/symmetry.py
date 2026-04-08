@@ -3155,7 +3155,9 @@ class SymmetryPipeline:
                 print(f"  ECC: cc={ecc_score:.4f}, tx={ecc_trans[0]:.2f}px, ty={ecc_trans[1]:.2f}px, rot={ecc_rot:.4f}deg")
                 print(f"  SSIM: {ssim_before_ecc:.4f} → {ssim_after_ecc:.4f} ({ecc_ssim_improvement:+.4f})")
                 # ECCの移動量が大きすぎる場合は弾く（誤収束防止）
-                _ecc_max_shift = 20.0  # px
+                # 画像短辺の5%を上限とし、最低20pxは許容
+                _ecc_short_side = min(imageA.shape[:2])
+                _ecc_max_shift = max(20.0, _ecc_short_side * 0.05)
                 _ecc_shift_ok = abs(ecc_trans[0]) < _ecc_max_shift and abs(ecc_trans[1]) < _ecc_max_shift
                 if not _ecc_shift_ok:
                     print(f"  × ECC精密合わせ不採用（移動量過大: tx={ecc_trans[0]:.1f}, ty={ecc_trans[1]:.1f}, 上限={_ecc_max_shift}px）")
