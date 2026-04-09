@@ -1032,8 +1032,8 @@ class SymmetryPipeline:
             _emin_area_ratio = float(config.get("ensemble_min_area_ratio", 0.003))
             _eimg_area = _eh * _ew
             _emin_area_scaled = max(30, int(_eimg_area * _emin_area_ratio))
-            _emin_area = max(_emin_area_cfg, _emin_area_scaled)
-            if _emin_area != _emin_area_cfg:
+            _emin_area = min(_emin_area_cfg, _emin_area_scaled)
+            if _emin_area < _emin_area_cfg:
                 print(f"  [E+SIFT AUTO] ensemble_min_area: {_emin_area_cfg} -> {_emin_area} "
                       f"(ratio={_emin_area_ratio}, area={_eimg_area})")
             _emin_dim = config.get("ensemble_min_dim", 6)
@@ -1225,10 +1225,9 @@ class SymmetryPipeline:
                         _band_filtered.append((_ebx, _eby, _ebw, _ebh))
                 bboxes = _band_filtered
 
-            # 近接BBOXマージ（背景ギャップで分離されている場合はマージしない）
+            # 近接BBOXマージ
             if bbox_merge_distance > 0 and len(bboxes) > 1:
-                bboxes = merge_nearby_bboxes(bboxes, distance_thresh=bbox_merge_distance,
-                                             diff_mask=_emask)
+                bboxes = merge_nearby_bboxes(bboxes, distance_thresh=bbox_merge_distance)
 
             strong_bboxes = []
             mask = _emask

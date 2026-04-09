@@ -10,16 +10,13 @@ from src.utils.image_utils import safe_imwrite
 import numpy as np
 
 
-def merge_nearby_bboxes(bboxes, distance_thresh=30, iou_thresh=0.1,
-                        diff_mask=None, bridge_fill_thresh=0.15):
+def merge_nearby_bboxes(bboxes, distance_thresh=30, iou_thresh=0.1):
     """近接・重複するBBOXをマージして1要素1BBOXにする
 
     Args:
         bboxes: [(x, y, w, h), ...] のリスト
         distance_thresh: この距離以内のBBOXをマージ候補とする（px）
         iou_thresh: IoUがこの値以上のBBOXをマージする
-        diff_mask: 差分マスク画像（指定時、2つのBBOX間の背景ギャップを判定）
-        bridge_fill_thresh: ギャップ領域の差分充填率がこれ未満なら背景分離と判定しマージしない
 
     Returns:
         merged: [(x, y, w, h), ...] マージ後のリスト
@@ -51,40 +48,7 @@ def merge_nearby_bboxes(bboxes, distance_thresh=30, iou_thresh=0.1,
                 return True
             # 元BBOXが重複しているがIoUが低い → 別の検出対象
             return False
-        # 元BBOXは重なっていないが距離が近い
-        # BBOX間の実距離を計算（端と端の最短距離）
-        _gap_x = max(0, max(ax, bx) - min(ax + aw, bx + bw))
-        _gap_y = max(0, max(ay, by) - min(ay + ah, by + bh))
-        _actual_gap = max(_gap_x, _gap_y)
-        # 非常に近い場合（gap < distance_thresh/3）は同一部品とみなし常にマージ
-        if _actual_gap < distance_thresh / 3:
-            return True
-        # diff_mask が指定されている場合、間のギャップに差分が少なければマージしない
-        if diff_mask is not None:
-            merged_x1 = min(ax, bx)
-            merged_y1 = min(ay, by)
-            merged_x2 = max(ax + aw, bx + bw)
-            merged_y2 = max(ay + ah, by + bh)
-            # マージ後の領域から元の2つのBBOXを除いたギャップ領域
-            import numpy as np
-            h, w = diff_mask.shape[:2]
-            merged_x1 = max(0, merged_x1)
-            merged_y1 = max(0, merged_y1)
-            merged_x2 = min(w, merged_x2)
-            merged_y2 = min(h, merged_y2)
-            gap_roi = diff_mask[merged_y1:merged_y2, merged_x1:merged_x2].copy()
-            # 元の2つのBBOXの領域をゼロにしてギャップだけ残す
-            a_local = (ax - merged_x1, ay - merged_y1, aw, ah)
-            b_local = (bx - merged_x1, by - merged_y1, bw, bh)
-            for lx, ly, lw, lh in [a_local, b_local]:
-                lx = max(0, lx)
-                ly = max(0, ly)
-                gap_roi[ly:ly+lh, lx:lx+lw] = 0
-            gap_area = gap_roi.size - aw * ah - bw * bh
-            if gap_area > 0:
-                gap_fill = float(np.count_nonzero(gap_roi)) / gap_area
-                if gap_fill < bridge_fill_thresh:
-                    return False  # 背景ギャップで分離
+        # 元BBOXは重なっていないが距離が近い → マージ
         return True
 
     def _merge_pair(a, b):
