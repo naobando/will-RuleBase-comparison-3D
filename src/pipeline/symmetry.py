@@ -1211,6 +1211,24 @@ class SymmetryPipeline:
                     _efinal.append((_ebx, _eby, _ebw, _ebh))
 
             bboxes = _efinal
+
+            # 帯状BBOX除去（位置ズレ由来の細長いBBOXを除去）
+            if bbox_drop_band_aspect > 0:
+                _band_before = len(bboxes)
+                _band_filtered = []
+                for (_ebx, _eby, _ebw, _ebh) in bboxes:
+                    _emax_aspect = max(_ebw, 1) / max(_ebh, 1)
+                    _emax_aspect = max(_emax_aspect, max(_ebh, 1) / max(_ebw, 1))
+                    if _emax_aspect >= bbox_drop_band_aspect:
+                        print(f"  [E+SIFT BAND DROP] bbox=({_ebx},{_eby},{_ebw},{_ebh}) aspect={_emax_aspect:.1f}")
+                    else:
+                        _band_filtered.append((_ebx, _eby, _ebw, _ebh))
+                bboxes = _band_filtered
+
+            # 近接BBOXマージ
+            if bbox_merge_distance > 0 and len(bboxes) > 1:
+                bboxes = merge_nearby_bboxes(bboxes, distance_thresh=bbox_merge_distance)
+
             strong_bboxes = []
             mask = _emask
 
