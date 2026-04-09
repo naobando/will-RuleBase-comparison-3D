@@ -48,7 +48,7 @@ analysis:
   bbox_method: ensemble_sift
   ensemble_thresh: 190
   ensemble_min_area: 200
-  ensemble_min_area_ratio: 0.003
+  ensemble_min_area_ratio: 0.0015
   ensemble_2scale_min_side: 250
   bbox_type_coloring: true
   ensemble_min_dim: 6
