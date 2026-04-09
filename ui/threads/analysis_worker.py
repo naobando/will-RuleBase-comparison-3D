@@ -118,6 +118,10 @@ class AnalysisWorker(QThread):
             "title": "板金比較: 基準 vs 比較",
             "show_plot": False,
         })
+        # crop_fixed_params はconfigトップレベルにあるので注入
+        _crop_fixed = self.config.get("crop_fixed_params")
+        if _crop_fixed:
+            pipeline_params["crop_fixed_params"] = _crop_fixed
         pipeline_params.update(params)
 
         # キャリブレーション結果を注入
