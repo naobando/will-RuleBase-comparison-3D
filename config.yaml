@@ -12,10 +12,9 @@ camera:
   quality_retry_delay_ms: 300
   quality_white_ratio: 0.05
   quality_blur_threshold: 100
-  # TIS カメラ設定 (最終テスト.iccf 基準)
-  tis_camera_name: "DFK AFU420-L62"
-  tis_serial: "DFK AFU420-L62 39520998"
-  tis_video_format: "RGB64 (1284x960)"
+  tis_camera_name: DFK AFU420-L62
+  tis_serial: DFK AFU420-L62 39520998
+  tis_video_format: RGB64 (1284x960)
   tis_fps: 10.0
   tis_offset_x: 3428
   tis_offset_y: 2368
@@ -35,7 +34,7 @@ camera:
   tis_color_enhancement: true
   tis_highlight_reduction: false
   tis_tone_mapping: false
-  tis_iccf_path: "最終テスト/drive-download-20260331T083203Z-1-001/最終テスト.iccf"
+  tis_iccf_path: 最終テスト/drive-download-20260331T083203Z-1-001/最終テスト.iccf
 guide:
   enabled: true
   master_dir: master
@@ -338,10 +337,10 @@ analysis:
 output:
   base_dir: outputs
 registration_crop:
-  x: 425
-  y: 80
-  w: 663
-  h: 839
+  x: 240
+  y: 547
+  w: 987
+  h: 1020
 crop_fixed_params:
   scale: 1.0
   rotation: 0.0
