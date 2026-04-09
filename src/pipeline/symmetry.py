@@ -691,7 +691,9 @@ class SymmetryPipeline:
             scratch_min_area = max(1, int(_image_area * scratch_min_area_ratio))
             print(f"  [auto] scratch_min_area: ratio={scratch_min_area_ratio} -> {scratch_min_area}px (image_area={_image_area})")
 
-        if bbox_merge_distance_ratio > 0 and _img_short_side > 0:
+        # bbox_merge_distance が明示指定されていない場合のみ ratio から自動計算
+        _bbox_merge_explicit = "bbox_merge_distance" in params
+        if not _bbox_merge_explicit and bbox_merge_distance_ratio > 0 and _img_short_side > 0:
             bbox_merge_distance = max(1, int(_img_short_side * bbox_merge_distance_ratio))
             print(f"  [auto] bbox_merge_distance: ratio={bbox_merge_distance_ratio} -> {bbox_merge_distance}px (short_side={_img_short_side})")
 

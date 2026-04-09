@@ -365,11 +365,14 @@ class LeftPanel(QScrollArea):
             1, 10, acfg.get("max_boxes", 10))
         row_et, self._sl_ensemble_thresh, self._sb_ensemble_thresh = _linked_slider(
             10, 255, acfg.get("ensemble_thresh", 70))
+        row_md, self._sl_merge_dist, self._sb_merge_dist = _linked_slider(
+            0, 200, acfg.get("bbox_merge_distance", 40))
 
         self._lbl_dt_auto = QLabel("")
         self._lbl_ma_auto = QLabel("")
         self._lbl_mk_auto = QLabel("")
-        for lbl in (self._lbl_dt_auto, self._lbl_ma_auto, self._lbl_mk_auto):
+        self._lbl_md_auto = QLabel("")
+        for lbl in (self._lbl_dt_auto, self._lbl_ma_auto, self._lbl_mk_auto, self._lbl_md_auto):
             lbl.setStyleSheet("color: #6a6; font-size: 10px;")
 
         form.addRow("diff_thresh", row_dt)
@@ -380,6 +383,8 @@ class LeftPanel(QScrollArea):
         form.addRow("", self._lbl_mk_auto)
         form.addRow("max_boxes", row_mb)
         form.addRow("ensemble_thresh", row_et)
+        form.addRow("bbox_merge_dist", row_md)
+        form.addRow("", self._lbl_md_auto)
 
         lay.addLayout(form)
         root.addWidget(box)
@@ -539,6 +544,7 @@ class LeftPanel(QScrollArea):
             "camera_enabled": self._cb_camera_enabled.isChecked(),
             # ピンアート外形照合
             "ensemble_thresh": self._sb_ensemble_thresh.value(),
+            "bbox_merge_distance": self._sb_merge_dist.value(),
             "pin_profile_enabled": self._chk_pin.isChecked(),
             "pin_burr_threshold": self._sb_pin_burr.value(),
             "pin_chip_threshold": self._sb_pin_chip.value(),
@@ -551,10 +557,12 @@ class LeftPanel(QScrollArea):
         dt_text: str = "",
         ma_text: str = "",
         mk_text: str = "",
+        md_text: str = "",
     ) -> None:
         self._lbl_dt_auto.setText(dt_text)
         self._lbl_ma_auto.setText(ma_text)
         self._lbl_mk_auto.setText(mk_text)
+        self._lbl_md_auto.setText(md_text)
 
     def show_master_warn(self, msg: str) -> None:
         self._lbl_master_warn.setText(msg)
