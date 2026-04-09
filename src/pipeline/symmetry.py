@@ -1032,10 +1032,8 @@ class SymmetryPipeline:
             _emin_area_ratio = float(config.get("ensemble_min_area_ratio", 0.003))
             _eimg_area = _eh * _ew
             _emin_area_scaled = max(30, int(_eimg_area * _emin_area_ratio))
-            # ratio から算出した面積と固定値の大きい方を採用
-            # （小画像で過大にならないよう固定値で下限、大画像ではratioでスケール）
-            _emin_area = max(_emin_area_cfg, _emin_area_scaled)
-            if _emin_area != _emin_area_cfg:
+            _emin_area = min(_emin_area_cfg, _emin_area_scaled)
+            if _emin_area < _emin_area_cfg:
                 print(f"  [E+SIFT AUTO] ensemble_min_area: {_emin_area_cfg} -> {_emin_area} "
                       f"(ratio={_emin_area_ratio}, area={_eimg_area})")
             _emin_dim = config.get("ensemble_min_dim", 6)
@@ -1213,23 +1211,6 @@ class SymmetryPipeline:
                     _efinal.append((_ebx, _eby, _ebw, _ebh))
 
             bboxes = _efinal
-
-            # Phase 5: 帯状BBOX除去 + 近接マージ
-            if bbox_drop_band_aspect > 0:
-                _band_filtered = []
-                for (_ebx, _eby, _ebw, _ebh) in bboxes:
-                    _easpect = max(_ebw, 1) / max(_ebh, 1)
-                    _easpect_inv = max(_ebh, 1) / max(_ebw, 1)
-                    _emax_aspect = max(_easpect, _easpect_inv)
-                    if _emax_aspect >= bbox_drop_band_aspect:
-                        print(f"  [E+SIFT BAND DROP] bbox=({_ebx},{_eby},{_ebw},{_ebh}) aspect={_emax_aspect:.1f} >= {bbox_drop_band_aspect}")
-                    else:
-                        _band_filtered.append((_ebx, _eby, _ebw, _ebh))
-                bboxes = _band_filtered
-
-            if bbox_merge_distance > 0 and len(bboxes) > 1:
-                bboxes = merge_nearby_bboxes(bboxes, distance_thresh=bbox_merge_distance)
-
             strong_bboxes = []
             mask = _emask
 
