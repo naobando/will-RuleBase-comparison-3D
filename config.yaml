@@ -238,7 +238,7 @@ analysis:
   bbox_drop_sparse_large_max_fill: 0.15
   bbox_drop_band_min_area_ratio: 0.005
   bbox_merge_distance: 40
-  bbox_merge_distance_ratio: 0.008
+  bbox_merge_distance_ratio: 0.03
   bbox_fg_edge_suppress_enabled: true
   bbox_fg_edge_suppress_width: 5
   bbox_fg_edge_suppress_offset: 255
