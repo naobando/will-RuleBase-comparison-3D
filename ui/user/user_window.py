@@ -124,10 +124,8 @@ class UserWindow(QWidget):
         images_layout.setSpacing(8)
 
         self._master_view = _LabeledImage("基準画像")   # 常時表示（左）
-        self._camera_view = _LabeledImage("撮影画像")   # スナップショット（中央）
         self._result_view = _LabeledImage("結果画像")   # 解析結果（右）
         images_layout.addWidget(self._master_view, stretch=1)
-        images_layout.addWidget(self._camera_view, stretch=1)
         images_layout.addWidget(self._result_view, stretch=1)
 
         # ── ボトムバー（ステータス + 解析中スピナー）──────────────────────
@@ -337,7 +335,7 @@ class UserWindow(QWidget):
         # ボタン押下時点のフレームをキャプチャして撮影画像エリアに固定表示
         frame = self._state.last_frame.copy()
         self._snapshot_taken = True
-        self._camera_view.set_cv2(frame)   # カメラビューをスナップショットに差し替え
+        self._left.update_thumb(frame)   # 撮影画像を左パネルに表示
         self._set_analyzing(True)
         self._set_verdict_standby("解析中...")
         self._status.showMessage("解析中...")
@@ -353,9 +351,7 @@ class UserWindow(QWidget):
     def _on_frame(self, frame: np.ndarray) -> None:
         self._state.last_frame = frame
         self._left.update_thumb(frame)
-        # スナップショット未取得中はライブ映像をカメラビューに表示
-        if not self._snapshot_taken:
-            self._camera_view.set_cv2(frame)
+        # ライブ映像は左パネルのサムネイルに表示（update_thumbで既に処理済み）
 
     def _on_camera_error(self, msg: str) -> None:
         self._set_analyzing(False)
@@ -402,9 +398,9 @@ class UserWindow(QWidget):
             QMessageBox.warning(self, "読み込みエラー", f"画像を読み込めません: {path}")
             return
 
-        # ファイル画像をカメラビューに固定表示
+        # ファイル画像を左パネルに表示
         self._snapshot_taken = True
-        self._camera_view.set_cv2(img)
+        self._left.update_thumb(img)
         self._state.test_frame = img
         self._status.showMessage(f"入力: {os.path.basename(path)}")
 

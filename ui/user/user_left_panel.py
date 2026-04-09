@@ -66,7 +66,7 @@ class UserLeftPanel(QWidget):
 
     def _build_camera_preview(self, layout: QVBoxLayout) -> None:
         self._thumb = ImageLabel("カメラ未接続")
-        self._thumb.setFixedHeight(130)
+        self._thumb.setFixedHeight(180)
         self._thumb.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self._thumb)
 
