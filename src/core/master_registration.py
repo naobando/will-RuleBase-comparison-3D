@@ -1,8 +1,81 @@
-"""マスター画像自動登録: 広角画像から部品を切り出して角度補正する"""
+"""マスター画像自動登録: 黒背景クロマキーで部品を切り出す"""
 from __future__ import annotations
 
 import cv2
 import numpy as np
+
+
+def chromakey_crop(image: np.ndarray, padding: int = 4,
+                   min_area_ratio: float = 0.01) -> tuple[np.ndarray, dict]:
+    """
+    黒背景クロマキーで部品を自動切り出す。
+    Otsu + morphological closing で前景を検出し、外接矩形で切り出す。
+
+    マスター登録とテスト画像cropの両方で共通使用する。
+
+    Parameters
+    ----------
+    image : np.ndarray
+        入力BGR画像（黒背景に部品が写っている）
+    padding : int
+        切り出しパディング（px）
+    min_area_ratio : float
+        画像全体に対するブロブ最小面積比率（ノイズ除去）
+
+    Returns
+    -------
+    result_image : np.ndarray
+        切り出し後のBGR画像
+    info : dict
+        処理情報 (method, bbox, fg_center など)
+    """
+    h, w = image.shape[:2]
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image.copy()
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, fg = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # 部品内部の穴を埋める
+    kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
+    fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, kern, iterations=3)
+    fg = cv2.dilate(fg, kern, iterations=1)
+
+    contours, _ = cv2.findContours(fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return image.copy(), {"method": "chromakey_fallback", "error": "no_contours"}
+
+    # 画像中心に最も近い大きな輪郭を選択
+    img_cx, img_cy = w // 2, h // 2
+    min_area = h * w * min_area_ratio
+    valid = [c for c in contours if cv2.contourArea(c) >= min_area]
+    if not valid:
+        valid = contours
+
+    def dist_to_center(c):
+        bx, by, bw, bh = cv2.boundingRect(c)
+        return (bx + bw // 2 - img_cx) ** 2 + (by + bh // 2 - img_cy) ** 2
+
+    main_c = min(valid, key=dist_to_center)
+    bx, by, bw, bh = cv2.boundingRect(main_c)
+
+    # パディング
+    bx = max(0, bx - padding)
+    by = max(0, by - padding)
+    bw = min(w - bx, bw + padding * 2)
+    bh = min(h - by, bh + padding * 2)
+
+    result = image[by:by + bh, bx:bx + bw]
+    if result.size == 0:
+        return image.copy(), {"method": "chromakey_fallback", "error": "empty_crop"}
+
+    fg_cx = bx + bw // 2
+    fg_cy = by + bh // 2
+
+    return result, {
+        "method": "chromakey",
+        "bbox": (bx, by, bw, bh),
+        "fg_center": (fg_cx, fg_cy),
+        "score": bw * bh / (h * w),
+    }
 
 
 def extract_master(
@@ -15,45 +88,27 @@ def extract_master(
     padding: int = 4,
 ) -> tuple[np.ndarray, dict]:
     """
-    広角画像から部品を自動抽出・角度補正してマスター画像を生成する。
-
-    2段階で試行:
-      1. エッジベース走査 (Canny → 4辺スキャン → 外形特定)
-      2. フォールバック: 二値化ベース (大津 → blob検出)
+    広角画像から部品を自動抽出してマスター画像を生成する。
+    黒背景クロマキー方式で切り出す。
 
     Parameters
     ----------
     image : np.ndarray
         入力BGR画像
-    blur_ksize : int
-        前処理ガウシアンブラーのカーネルサイズ
-    morph_close_iter : int
-        モルフォロジーCloseの反復回数
-    morph_open_iter : int
-        モルフォロジーOpenの反復回数
-    poly_epsilon_ratio : float
-        (未使用、後方互換のため残存)
-    min_area_ratio : float
-        画像全体に対するブロブ最小面積比率（ノイズ除去）
     padding : int
         切り出しパディング（px）
+    min_area_ratio : float
+        画像全体に対するブロブ最小面積比率（ノイズ除去）
 
     Returns
     -------
     result_image : np.ndarray
-        切り出し・角度補正後のBGR画像
+        切り出し後のBGR画像
     info : dict
-        処理情報 (method, angle, score, mask など)
+        処理情報 (method, bbox, mask など)
         info["mask"] に前景マスク (uint8, 0=背景/255=部品) を格納
     """
-    # まずエッジベースを試行
-    result, info = _extract_edge_based(image, blur_ksize, padding, min_area_ratio)
-    if result is None:
-        # フォールバック: 二値化ベース
-        result, info = _extract_binary_based(
-            image, blur_ksize, morph_close_iter, morph_open_iter,
-            min_area_ratio, padding,
-        )
+    result, info = chromakey_crop(image, padding=padding, min_area_ratio=min_area_ratio)
 
     # 切り出し後の画像から前景マスクを生成
     info["mask"] = _create_foreground_mask(result)

@@ -458,67 +458,35 @@ class SymmetryPipeline:
         crop_info = None
 
         # 画角をマスターに合わせる：比較画像からマスターと同じ範囲だけ切り出す（オンオフ可）
-        # 固定パラメータが設定されている場合、テンプレートマッチを飛ばして直接切り出す
+        # crop_fixed_params が設定されている場合、クロマキーで前景中心を検出し
+        # マスターと同じサイズの領域を切り出す
         _crop_fixed = config.get("crop_fixed_params")
         if use_crop_to_master_fov and _crop_fixed and isinstance(_crop_fixed, dict):
-            _cf_scale = _crop_fixed.get("scale", 1.0)
-            _cf_rotation = _crop_fixed.get("rotation", 0.0)
-            _cf_tw = int(imageA.shape[1] * _cf_scale)
-            _cf_th = int(imageA.shape[0] * _cf_scale)
-            # 回転が必要な場合
-            if abs(_cf_rotation) > 0.5:
-                from src.core.crop import _rotate_image_by_angle
-                _cf_rotated = _rotate_image_by_angle(imageB, _cf_rotation)
-            else:
-                _cf_rotated = imageB
-            # 前景中心を自動検出してcrop位置を決定（Otsu + closing で穴を埋める）
-            _cf_gray = cv2.cvtColor(_cf_rotated, cv2.COLOR_BGR2GRAY) if len(_cf_rotated.shape) == 3 else _cf_rotated
-            _cf_blurred = cv2.GaussianBlur(_cf_gray, (5, 5), 0)
-            _, _cf_bin = cv2.threshold(_cf_blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            # 部品内部の穴を埋めるために closing → dilate
-            _cf_kern = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
-            _cf_bin = cv2.morphologyEx(_cf_bin, cv2.MORPH_CLOSE, _cf_kern, iterations=3)
-            _cf_bin = cv2.dilate(_cf_bin, _cf_kern, iterations=1)
-            _cf_contours, _ = cv2.findContours(_cf_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if _cf_contours:
-                # 画像中心に最も近い大きな輪郭を選択（ノイズ除去）
-                _cf_img_cx = _cf_rotated.shape[1] // 2
-                _cf_img_cy = _cf_rotated.shape[0] // 2
-                _cf_min_area = _cf_rotated.shape[0] * _cf_rotated.shape[1] * 0.01
-                _cf_valid = [c for c in _cf_contours if cv2.contourArea(c) >= _cf_min_area]
-                if not _cf_valid:
-                    _cf_valid = _cf_contours
-                # 中心に最も近い輪郭を選択
-                def _cf_dist_to_center(c):
-                    bx, by, bw, bh = cv2.boundingRect(c)
-                    return (bx + bw // 2 - _cf_img_cx) ** 2 + (by + bh // 2 - _cf_img_cy) ** 2
-                _cf_main = min(_cf_valid, key=_cf_dist_to_center)
-                _cf_bx, _cf_by, _cf_bw, _cf_bh = cv2.boundingRect(_cf_main)
-                # 前景中心を基準に、マスターと同じサイズの領域を切り出す
-                _cf_cx = _cf_bx + _cf_bw // 2
-                _cf_cy = _cf_by + _cf_bh // 2
+            from src.core.master_registration import chromakey_crop
+            # テスト画像の前景中心を検出
+            _, _cf_info = chromakey_crop(imageB)
+            if _cf_info.get("fg_center"):
+                _cf_cx, _cf_cy = _cf_info["fg_center"]
+                _cf_tw, _cf_th = imageA.shape[1], imageA.shape[0]
+                # 前景中心を基準にマスターと同じサイズで切り出す
                 _cf_x = max(0, _cf_cx - _cf_tw // 2)
                 _cf_y = max(0, _cf_cy - _cf_th // 2)
-                # 画像端からはみ出さないようにクランプ
-                _cf_x = min(_cf_x, _cf_rotated.shape[1] - _cf_tw)
-                _cf_y = min(_cf_y, _cf_rotated.shape[0] - _cf_th)
+                _cf_x = min(_cf_x, imageB.shape[1] - _cf_tw)
+                _cf_y = min(_cf_y, imageB.shape[0] - _cf_th)
                 _cf_x = max(0, _cf_x)
                 _cf_y = max(0, _cf_y)
-                print(f"[CropFixed] fg_center=({_cf_cx},{_cf_cy}), crop_pos=({_cf_x},{_cf_y}), fg_bbox=({_cf_bx},{_cf_by},{_cf_bw},{_cf_bh})")
+                _cf_x2 = min(imageB.shape[1], _cf_x + _cf_tw)
+                _cf_y2 = min(imageB.shape[0], _cf_y + _cf_th)
+                _cf_cropped = imageB[_cf_y:_cf_y2, _cf_x:_cf_x2]
+                if _cf_cropped.size > 0:
+                    imageB = cv2.resize(_cf_cropped, (_cf_tw, _cf_th))
+                    crop_info = {"enabled": True, "method": "chromakey_crop",
+                                 "fg_center": (_cf_cx, _cf_cy), "position": (_cf_x, _cf_y)}
+                    print(f"[ChromakeyCrop] fg_center=({_cf_cx},{_cf_cy}), crop=({_cf_x},{_cf_y})-({_cf_x2},{_cf_y2})")
+                else:
+                    crop_info = {"enabled": True, "method": "chromakey_crop", "error": "empty_crop"}
             else:
-                _cf_x = _crop_fixed.get("x", 0)
-                _cf_y = _crop_fixed.get("y", 0)
-                print(f"[CropFixed] fg not found, fallback to fixed pos=({_cf_x},{_cf_y})")
-            _cf_x2 = min(_cf_rotated.shape[1], _cf_x + _cf_tw)
-            _cf_y2 = min(_cf_rotated.shape[0], _cf_y + _cf_th)
-            _cf_cropped = _cf_rotated[_cf_y:_cf_y2, _cf_x:_cf_x2]
-            if _cf_cropped.size > 0:
-                imageB = cv2.resize(_cf_cropped, (imageA.shape[1], imageA.shape[0]))
-                crop_info = {"enabled": True, "method": "fixed_params_auto_center", "scale": _cf_scale,
-                             "rotation": _cf_rotation, "position": (_cf_x, _cf_y)}
-                print(f"[CropFixed] scale={_cf_scale}, rot={_cf_rotation}, crop=({_cf_x},{_cf_y})-({_cf_x2},{_cf_y2})")
-            else:
-                crop_info = {"enabled": True, "method": "fixed_params", "error": "empty_crop"}
+                crop_info = {"enabled": True, "method": "chromakey_crop", "error": "no_fg_center"}
         elif use_crop_to_master_fov:
             imageA, imageB, crop_info = self._crop_to_fov(
                 imageA, imageB,
