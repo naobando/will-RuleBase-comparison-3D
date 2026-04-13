@@ -10,3 +10,4 @@
 - [06. テスト結果サマリ](06_test_results.md)
 - [07. 現状の精度サマリ](07_current_accuracy.md)
 - [08. 精度悪化の要因と対策の履歴](08_root_causes_and_fixes.md)
+- [09. アンチパターン検証リスト](09_anti_patterns.md)
