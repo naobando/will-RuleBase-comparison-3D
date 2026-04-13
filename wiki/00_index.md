@@ -12,3 +12,4 @@
 - [08. 精度悪化の要因と対策の履歴](08_root_causes_and_fixes.md)
 - [09. アンチパターン検証リスト](09_anti_patterns.md)
 - [10. Q&A: 精度悪化要因と対策について](10_qa_precision_fixes.md)
+- [11. デモ台本](11_demo_script.md)
