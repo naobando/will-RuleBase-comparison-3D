@@ -336,6 +336,7 @@ class UserWindow(QWidget):
         frame = self._state.last_frame.copy()
         self._snapshot_taken = True
         self._left.update_thumb(frame)   # 撮影画像を左パネルに表示
+        self._result_view.clear()       # 前回の結果をクリア
         self._set_analyzing(True)
         self._set_verdict_standby("解析中...")
         self._status.showMessage("解析中...")
@@ -401,6 +402,7 @@ class UserWindow(QWidget):
         # ファイル画像を左パネルに表示
         self._snapshot_taken = True
         self._left.update_thumb(img)
+        self._result_view.clear()       # 前回の結果をクリア
         self._state.test_frame = img
         self._status.showMessage(f"入力: {os.path.basename(path)}")
 
@@ -691,6 +693,10 @@ class _LabeledImage(QWidget):
 
     def set_pixmap(self, pixmap: QPixmap) -> None:
         self._img.set_pixmap_source(pixmap)
+
+    def clear(self) -> None:
+        self._img.clear()
+        self._img.setText("")
 
 
 class _SelectableImageLabel(QLabel):
